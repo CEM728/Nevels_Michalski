@@ -1,0 +1,17 @@
+\documentclass{standalone}
+
+  \usepackage{pgfplots}
+
+  \pgfplotsset{compat=newest}
+  %% the following commands are sometimes needed
+  \usetikzlibrary{plotmarks}
+  \usepackage{grffile}
+  \usepackage{amsmath}
+  %% you may also want the following commands
+  \pgfplotsset{plot coordinates/math parser=false}
+  \newlength\figureheight
+  \newlength\figurewidth
+
+\begin{document}
+  \input{source/kx_int_overlay_633.tex}
+\end{document}

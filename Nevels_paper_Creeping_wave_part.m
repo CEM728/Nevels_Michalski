@@ -1,0 +1,123 @@
+clear all
+close all;clc
+
+lambda = 633e-9; % Green light wavelength
+eps_silver =  -18.295 - 1i*0.48085; % Johnson & Christy,1972 (refractiveindex.info) at 633 nm
+load em_constants.mat % Contains varepsilon, mu and c
+eps_0 = epsilon_0;
+omega = 2*pi*c/lambda; % angular frequency
+
+k_air = 2*pi/lambda; % propagation constant of air
+k_silver = omega * sqrt(mu_0*epsilon_0*eps_silver); % propagation constant of silver
+kxx = linspace(-1e4*k_air,1e4*k_air,1e4);
+kxy = linspace(-1e4*k_air,1e4*k_air,1e4);
+kx = meshgrid(kxx,kxy); % [real(kx),imag(kx)]
+dif = abs(kxx - k_air);
+pole_location = find(dif == min(dif)); % Index in kxx with the nearest value of k_air
+vert_int_len = 1e4;
+x = linspace(1e-2*lambda,1e4*lambda,1e4); % Space vector definition
+H = zeros(length(x)); % Initialize the magnetic field vector
+H_c1 = zeros(length(x)); % Initialize the magnetic field vector
+H_c2 = zeros(length(x)); % Initialize the magnetic field vector
+H_c3 = zeros(length(x)); % Initialize the magnetic field vector
+%% Define Contour
+%                 C2            
+%               --->--   
+%               | k1 |
+%               |    |
+%             C1|    |C3
+%               |    | 
+%               |    V
+%               |    | 
+%               ^    |
+% Define real and imaginary start points for c1 
+%
+c1_start_real = kxx(pole_location - 1);
+c1_start_imag = -kxx(pole_location - 1)*1e3;
+%
+% Define real and imaginary end points for c1 
+%
+c1_end_real = kxx(pole_location - 1);
+c1_end_imag = eps;
+% 
+% Make C1 Contour
+c1_real = c1_start_real*ones(vert_int_len,1);
+c1_imag = linspace(c1_start_imag, c1_end_imag,vert_int_len);
+
+c1 = horzcat(c1_real, c1_imag');
+kx_c1 = c1_real(:,1) + 1i*c1_imag(1,:)';
+
+%
+% Define real and imaginary start points for c2 
+%
+c2_start_real = kxx(pole_location - 1);
+c2_start_imag = eps;
+%
+% Define real and imaginary end points for c2 
+%
+c2_end_real = kxx(pole_location + 1);
+c2_end_imag = eps;
+%
+% Make C3 Contour
+c2_real = linspace(-c2_start_real, c2_end_real,3);
+c2_imag = eps*ones(3,1);
+
+c2 = horzcat(c2_real', c2_imag);
+kx_c2 = c2_real(:,1) + 1i*c2_imag(1,:)';
+% Define real and imaginary start points for c3 
+%
+c3_start_real = kxx(pole_location + 1);
+c3_start_imag = eps;
+%
+% Define real and imaginary end points for c3
+%
+c3_end_real = kxx(pole_location + 1);
+c3_end_imag = -kxx(pole_location - 1)*1e3;
+%
+% Make C3 Contour
+c3_real = c3_start_real*ones(vert_int_len,1);
+c3_imag = linspace(c3_start_imag, c3_end_imag,vert_int_len);
+
+c3 = horzcat(c3_real, c3_imag');
+kx_c3 = c3_real(:,1) + 1i*c3_imag(1,:)';
+%% Define Green's function
+
+kz_1 = @(kx) sqrt(k_air^2 - kx.^2);
+kz_2 = @(kx) sqrt(k_silver^2 - kx.^2);
+D = @(kx) kz_2(kx)/eps_silver + kz_1(kx)/eps_0;
+G = @(kx) 1./D(kx);
+
+
+% Integrate
+for i = 1 : length (x)
+    % Integrate on left edge
+    % This is a bottom (improper) Riemann sheet
+    % Im(kz) > 0
+    % Due to the path being on the left of the cut
+    % Re(kz) < 0 [1]
+    for j = 1 : length(c1)
+        % Enforce real parts to be wavevectors to be negative
+        %
+        if real(kz_1(kx_c1(j))) < 0
+            kz_1(kx_c1(j)) = -real(kz_1(kx_c1(j))) + 1i*imag(kz_1(kx_c1(j)));
+        end
+        if real(kz_2(kx_c1(j))) < 0
+            kz_2(kx_c1(j)) = -real(kz_2(kx_c1(j))) + 1i*imag(kz_1(kx_c1(j)));
+        end
+        %
+        % Satisfy Imagainary parts
+        if imag(kz_1(kx_c1(j))) < 0
+            kz_1(kx_c1(j)) = conj(kz_1(kx_c1(j)));
+        end
+        if imag(kz_2(kx_c1(j))) < 0
+            kz_2(kx_c1(j)) = conj(kz_2(kx_c1(j)));
+        end
+        temp = @(kx) G(kx).*exp(-1i*kx*x(i));
+        H_c1(i) = integral(temp, min(imag(kx_c1)),max(imag(kx_c1)));
+    end
+        H = H_c1 + H_c2 + H_c3;
+end
+          
+          
+          
+          
